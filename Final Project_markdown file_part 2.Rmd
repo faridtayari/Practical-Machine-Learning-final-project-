@@ -1,0 +1,120 @@
+---
+title: "Final Project part 2"
+author: "FTayari"
+date: "March 11, 2018"
+output: html_document
+---
+
+In this report I used the data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants to  build models for making predictions on the train set and then appling the model to the test set for predicting the manner that participants did the exercise.
+
+Note: I experiences memory usage error. so, I needed to split the mark down file into two sections:
+- Part 1: Tree, Pruning the tree with cross validation, and bagging
+- part 2:Random forests, Boosting, LDA, QDA
+
+```{r}
+library(caret)
+library(party)
+library (tree)
+
+training<-read.csv("pml-training.csv")
+testing<-read.csv("pml-testing.csv")
+```
+
+#Cleaning the data and removing the unnecessary data
+Droppng the summary statistics variables that include: 
+"kurtosis_", "skewness_", "max_", "min_", "amplitude_", "var_", "avg_", and "stddev_" 
+
+```{r}
+training<-training[,c(8:11,37:49,60:68,84:86,116:124,151:160)]
+testing<-testing[,c(8:11,37:49,60:68,84:86,116:124,151:160)]
+```
+
+
+#Random forests
+```{r}
+#mod.rf <- train(classe ~ .,method="rf",data=training)
+library (randomForest)
+mod.rf =randomForest(classe~.,data=training , importance =TRUE)
+
+
+#Train set prediction
+pred.train<-predict(mod.rf, training)
+train.table<-table(predict=pred.train,truth = training$classe )
+train.table
+(train.table[1,1]+train.table[2,2]+train.table[3,3]+train.table[4,4]+train.table[5,5])/sum(train.table)
+
+# Test set prediction
+pred.test<-predict(mod.rf, testing)
+pred.test
+
+```
+I used the random forrest in the randomForest package. It seems to be faster and gives 100% accuracy.
+
+### Random forests with parallel method
+```{R}
+#library(parallel)
+#library(doParallel)
+#cluster <- makeCluster(detectCores() - 1)
+#registerDoParallel(cluster)
+#fitControl <- trainControl(method = "cv",number = 5, allowParallel = TRUE)
+
+#mod.rf2 <- train(classe ~ .,method="rf",data=training,trControl = fitControl)
+#stopCluster(cluster)
+#registerDoSEQ()
+
+#Train set prediction
+#pred.train<-predict(mod.rf2, training)
+#train.table<-table(predict=pred.train,truth = training$classe )
+#train.table
+#(train.table[1,1]+train.table[2,2]+train.table[3,3]+train.table[4,4]+train.table[5,5])/sum(train.table)
+
+# Test set prediction
+#pred.test<-predict(mod.rf2, testing)
+#pred.test
+```
+
+# Boosting
+```{r}
+library (gbm)
+#mod.boost <- train(classe ~ .,method="gbm",data=training) # It takes forever 
+mod.boost <- gbm(classe ~ .,data=training, distribution=
+                         "gaussian",n.trees =5000 , interaction.depth =4)
+summary (mod.boost)
+
+```
+
+As we can see boosting shows the most important parameters and results show that roll_belt is the most important one.
+
+# LDA
+```{R}
+library (MASS)
+mod.lda=lda(classe~. ,data=training)
+pred.train<-predict(mod.lda , training)
+train.table<-table(predict=pred.train$class,truth = training$classe )
+train.table
+(train.table[1,1]+train.table[2,2]+train.table[3,3]+train.table[4,4]+train.table[5,5])/sum(train.table)
+
+# Test set prediction
+pred.test<-predict(mod.lda , testing)
+pred.test$class
+```
+
+# QDA
+```{R}
+mod.qda=qda(classe~. ,data=training)
+pred.train<-predict(mod.qda , training)
+train.table<-table(predict=pred.train$class,truth = training$classe )
+train.table
+(train.table[1,1]+train.table[2,2]+train.table[3,3]+train.table[4,4]+train.table[5,5])/sum(train.table)
+
+# Test set prediction
+pred.test<-predict(mod.qda , testing)
+pred.test$class
+```
+As results show Quadratic Discriminant Analysis has much better performance on the train set compare to Linear Discriminant Analysis
+
+# Results
+As results show bagging and random forest give very high accuracy on the train set.
+Pruned tree and Quadratic Discriminant Analysis also do a good job on train set prediction.
+
+I would choose random forest and Quadratic Discriminant Analysis for the test. They would offer lower variance and bias. 
